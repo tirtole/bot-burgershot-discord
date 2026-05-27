@@ -23,7 +23,7 @@ class BurgerShotBot(commands.Bot):
             "cogs.annonces",
             "cogs.moderation",
             "cogs.aide",
-      #      "cogs.autorole",
+            "cogs.autorole",
             "cogs.dev_reload",
             "cogs.factures",
             "cogs.facture_history",
