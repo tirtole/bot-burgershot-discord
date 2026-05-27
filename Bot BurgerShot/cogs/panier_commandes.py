@@ -10,7 +10,7 @@ from config import (
     ROLE_MANAGER,
     ROLE_EMPLOYE,
     CHANNEL_COMMANDES
-)
+)entreprise
 
 from utils.menu_utils import load_menu
 from utils.logger import log_action
@@ -384,7 +384,6 @@ class PanierInvoiceInfoModal(discord.ui.Modal, title="Informations pour la factu
         self.public_order = public_order
 
         if client is not None:
-            self.entreprise.default = client.display_name
             self.destinataire.default = client.display_name
 
     async def on_submit(self, interaction: discord.Interaction):
