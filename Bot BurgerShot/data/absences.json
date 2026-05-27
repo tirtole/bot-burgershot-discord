@@ -1,0 +1,38 @@
+{
+    "1507760918501527652": {
+        "_counter": 3,
+        "A0001": {
+            "user_id": 1503755509688438986,
+            "date_debut": "25/05/2026",
+            "date_fin": "30/05/2026",
+            "raison": "Vacance",
+            "status": "Acceptée",
+            "created_at": "24/05/2026 18:47",
+            "reviewed_by": 1503755509688438986
+        },
+        "A0002": {
+            "user_id": 1503755509688438986,
+            "date_debut": "25/05/2026",
+            "date_fin": "30/05/2026",
+            "raison": "Vacances",
+            "status": "Refusée",
+            "created_at": "24/05/2026 19:11",
+            "reviewed_by": 1503755509688438986,
+            "refus_reason": "TG",
+            "review_channel_id": 1507766355162828891,
+            "review_message_id": 1508155565023432897
+        },
+        "A0003": {
+            "user_id": 1503755509688438986,
+            "date_debut": "25/08/2026",
+            "date_fin": "25/09/2026",
+            "raison": "25/08/2026",
+            "status": "Acceptée",
+            "created_at": "24/05/2026 19:15",
+            "reviewed_by": 1503755509688438986,
+            "refus_reason": null,
+            "review_channel_id": 1508150198663118868,
+            "review_message_id": 1508156574705651732
+        }
+    }
+}

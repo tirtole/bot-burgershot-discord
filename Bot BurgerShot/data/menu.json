@@ -1,0 +1,65 @@
+{
+    "Accompagnements": [
+        {
+            "nom": "Frites",
+            "prix": "130€",
+            "description": "**Pdt** ➡️ Cuisson ➡️ Frite"
+        },
+        {
+            "nom": "Salade en bol",
+            "prix": "175€",
+            "description": "Tomate + Salade + Bol plastique ➡️ Salade en bol"
+        }
+    ],
+    "Boissons": [
+        {
+            "nom": "Cola",
+            "prix": "95€",
+            "description": "Glaçon ➡️ Boisson en gobelet ➡️ Cola"
+        },
+        {
+            "nom": "Bouteille Evian",
+            "prix": "80€",
+            "description": "Glaçon ➡️ Boisson en bouteille ➡️ Evian"
+        }
+    ],
+    "Menus": [
+        {
+            "nom": "Menu Niglo",
+            "prix": "390€",
+            "description": "Evian + Burger"
+        },
+        {
+            "nom": "Menu Sivop",
+            "prix": "475€",
+            "description": "Cola + Burger ➡️ Menu Sivop"
+        },
+        {
+            "nom": "Menu Bursty",
+            "prix": "495€",
+            "description": "Cola + Burger + Frite ➡️ Menu Bursty"
+        },
+        {
+            "nom": "Menu Golden",
+            "prix": "750€",
+            "description": "Cola + Boite de nuggets + Frite"
+        },
+        {
+            "nom": "Menu Bibou",
+            "prix": "1500€",
+            "description": "Cola + Frite + Boite de nuggets + Salade en bol"
+        }
+    ],
+    "Unité": [
+        {
+            "nom": "Burger",
+            "prix": "210€",
+            "description": "Viande cru ➡️ Cuisson ➡️ Viande Cuite + Pain Burger + Salade ➡️ Burger"
+        },
+        {
+            "nom": "Boite de nuggets",
+            "prix": "275€",
+            "description": "Nuggets Cru ➡️ Cuisson ➡️ Nuggets Cuits + Bol en plastique ➡️ Boite de nuggets"
+        }
+    ]
+}
