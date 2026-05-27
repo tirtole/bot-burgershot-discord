@@ -3,7 +3,7 @@ from pathlib import Path
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from config import CHANNEL_SERVICES
 from utils.logger import log_action
@@ -13,6 +13,14 @@ from utils.storage import load_json, save_json
 
 SERVICES_FILE = Path("data/services.json")
 SERVICES_PANEL_FILE = Path("data/services_panel.json")
+
+MAX_SERVICE_DURATION = 5 * 60 * 60  # 5 heures
+
+# ID DU ROLE HG
+HG_ROLE_ID = 123456789012345678
+
+# ID DU SALON PRIVE HG
+HG_CHANNEL_ID = 123456789012345678
 
 
 def load_services():
@@ -174,8 +182,11 @@ class BurgerShotServices(commands.Cog):
         self.bot = bot
         self.ready_done = False
 
-        # Important : boutons persistants même après redémarrage du bot
+        # Boutons persistants
         self.bot.add_view(ServicesPanelView())
+
+        # Démarrage de la vérification automatique
+        self.auto_remove_services.start()
 
     async def get_panel_message(self, guild: discord.Guild):
         panel_data = load_panel_data()
@@ -195,13 +206,16 @@ class BurgerShotServices(commands.Cog):
         try:
             message = await channel.fetch_message(message_id)
             return channel, message
+
         except discord.NotFound:
             return channel, None
+
         except discord.Forbidden:
-            print("[SERVICES] Permissions insuffisantes pour lire/modifier le panel.")
+            print("[SERVICES] Permissions insuffisantes.")
             return channel, None
+
         except discord.HTTPException as error:
-            print(f"[SERVICES] Erreur HTTP panel : {error}")
+            print(f"[SERVICES] Erreur HTTP : {error}")
             return channel, None
 
     async def update_services_panel(self, guild: discord.Guild):
@@ -221,7 +235,10 @@ class BurgerShotServices(commands.Cog):
         channel, message = await self.get_panel_message(guild)
 
         if channel is None:
-            channel = discord.utils.get(guild.text_channels, name=CHANNEL_SERVICES)
+            channel = discord.utils.get(
+                guild.text_channels,
+                name=CHANNEL_SERVICES
+            )
 
         if channel is None:
             print(f"[SERVICES] Salon introuvable : {CHANNEL_SERVICES}")
@@ -242,9 +259,10 @@ class BurgerShotServices(commands.Cog):
                 save_panel_data(panel_data)
 
             except discord.Forbidden:
-                print("[SERVICES] Permissions insuffisantes pour envoyer le panel.")
+                print("[SERVICES] Permissions insuffisantes.")
+
             except discord.HTTPException as error:
-                print(f"[SERVICES] Impossible d'envoyer le panel : {error}")
+                print(f"[SERVICES] Impossible d'envoyer : {error}")
 
             return
 
@@ -262,9 +280,10 @@ class BurgerShotServices(commands.Cog):
             save_panel_data(panel_data)
 
         except discord.Forbidden:
-            print("[SERVICES] Permissions insuffisantes pour modifier le panel.")
+            print("[SERVICES] Permissions insuffisantes.")
+
         except discord.HTTPException as error:
-            print(f"[SERVICES] Impossible de modifier le panel : {error}")
+            print(f"[SERVICES] Impossible de modifier : {error}")
 
     async def start_service(self, interaction: discord.Interaction):
         if not has_burgershot_role(interaction.user):
@@ -330,11 +349,14 @@ class BurgerShotServices(commands.Cog):
             return
 
         start_timestamp = services[user_id]["start_timestamp"]
+
         end_timestamp = int(time.time())
+
         total_seconds = end_timestamp - start_timestamp
         duration = format_duration(total_seconds)
 
         del services[user_id]
+
         save_services(services)
 
         await self.update_services_panel(interaction.guild)
@@ -352,6 +374,85 @@ class BurgerShotServices(commands.Cog):
             discord.Color.red()
         )
 
+    @tasks.loop(minutes=1)
+    async def auto_remove_services(self):
+        services = load_services()
+
+        if not services:
+            return
+
+        current_timestamp = int(time.time())
+        modified = False
+
+        for guild in self.bot.guilds:
+            hg_channel = guild.get_channel(HG_CHANNEL_ID)
+            hg_role = guild.get_role(HG_ROLE_ID)
+
+            users_to_remove = []
+
+            for user_id, data in services.items():
+                start_timestamp = data["start_timestamp"]
+
+                total_time = current_timestamp - start_timestamp
+
+                if total_time >= MAX_SERVICE_DURATION:
+                    users_to_remove.append(
+                        (user_id, data, total_time)
+                    )
+
+            for user_id, data, total_time in users_to_remove:
+                user = guild.get_member(int(user_id))
+
+                duration = format_duration(total_time)
+
+                # MP utilisateur
+                if user is not None:
+                    try:
+                        await user.send(
+                            "⏰ Ton service BurgerShot a été automatiquement "
+                            f"retiré après `{duration}` sans renouvellement."
+                        )
+
+                    except Exception:
+                        pass
+
+                # Message HG
+                if hg_channel is not None:
+                    try:
+                        await hg_channel.send(
+                            f"{hg_role.mention if hg_role else ''}\n"
+                            f"⚠️ {data['mention']} a été retiré automatiquement "
+                            f"du service après `{duration}`."
+                        )
+
+                    except Exception as error:
+                        print(
+                            "[SERVICES] Impossible d'envoyer "
+                            f"le message HG : {error}"
+                        )
+
+                # Logs
+                await log_action(
+                    guild,
+                    "⏰ Service retiré automatiquement",
+                    f"{data['mention']} a été retiré automatiquement "
+                    f"du service après `{duration}` sans renouvellement.",
+                    discord.Color.orange()
+                )
+
+                del services[user_id]
+                modified = True
+
+        if modified:
+            save_services(services)
+
+            for guild in self.bot.guilds:
+                await self.update_services_panel(guild)
+
+    @auto_remove_services.before_loop
+    async def before_auto_remove_services(self):
+        await self.bot.wait_until_ready()
+
     @commands.Cog.listener()
     async def on_ready(self):
         if self.ready_done:
@@ -362,7 +463,10 @@ class BurgerShotServices(commands.Cog):
         for guild in self.bot.guilds:
             await self.update_services_panel(guild)
 
-    @app_commands.command(name="panel_services", description="Créer ou mettre à jour le panel permanent des services")
+    @app_commands.command(
+        name="panel_services",
+        description="Créer ou mettre à jour le panel permanent des services"
+    )
     async def panel_services(
         self,
         interaction: discord.Interaction,
@@ -370,13 +474,16 @@ class BurgerShotServices(commands.Cog):
     ):
         if not is_staff(interaction.user):
             await interaction.response.send_message(
-                "❌ Seuls les managers ou patrons peuvent créer le panel des services.",
+                "❌ Seuls les managers ou patrons peuvent créer le panel.",
                 ephemeral=True
             )
             return
 
         if salon is None:
-            salon = discord.utils.get(interaction.guild.text_channels, name=CHANNEL_SERVICES)
+            salon = discord.utils.get(
+                interaction.guild.text_channels,
+                name=CHANNEL_SERVICES
+            )
 
         if salon is None:
             await interaction.response.send_message(
@@ -387,7 +494,9 @@ class BurgerShotServices(commands.Cog):
 
         panel_data = load_panel_data()
 
-        old_channel, old_message = await self.get_panel_message(interaction.guild)
+        old_channel, old_message = await self.get_panel_message(
+            interaction.guild
+        )
 
         if old_message is not None:
             try:
@@ -396,7 +505,12 @@ class BurgerShotServices(commands.Cog):
                 pass
 
         services_data = load_services()
-        embed = build_services_list_embed() if services_data else build_empty_services_embed()
+
+        embed = (
+            build_services_list_embed()
+            if services_data
+            else build_empty_services_embed()
+        )
 
         message = await salon.send(
             embed=embed,
@@ -411,29 +525,44 @@ class BurgerShotServices(commands.Cog):
         save_panel_data(panel_data)
 
         await interaction.response.send_message(
-            f"✅ Panel des services créé dans {salon.mention}.",
+            f"✅ Panel créé dans {salon.mention}.",
             ephemeral=True
         )
 
         await log_action(
             interaction.guild,
             "📋 Panel services créé",
-            f"{interaction.user.mention} a créé le panel permanent des services dans {salon.mention}.",
+            f"{interaction.user.mention} a créé "
+            f"le panel dans {salon.mention}.",
             discord.Color.green()
         )
 
-    @app_commands.command(name="service", description="Prendre son service BurgerShot")
+    @app_commands.command(
+        name="service",
+        description="Prendre son service BurgerShot"
+    )
     async def service(self, interaction: discord.Interaction):
         await self.start_service(interaction)
 
-    @app_commands.command(name="finservice", description="Terminer son service BurgerShot")
+    @app_commands.command(
+        name="finservice",
+        description="Terminer son service BurgerShot"
+    )
     async def finservice(self, interaction: discord.Interaction):
         await self.end_service(interaction)
 
-    @app_commands.command(name="services", description="Afficher les employés actuellement en service")
+    @app_commands.command(
+        name="services",
+        description="Afficher les employés actuellement en service"
+    )
     async def services(self, interaction: discord.Interaction):
         services_data = load_services()
-        embed = build_services_list_embed() if services_data else build_empty_services_embed()
+
+        embed = (
+            build_services_list_embed()
+            if services_data
+            else build_empty_services_embed()
+        )
 
         await interaction.response.send_message(
             embed=embed,
@@ -443,7 +572,7 @@ class BurgerShotServices(commands.Cog):
         await log_action(
             interaction.guild,
             "📋 Liste des services consultée",
-            f"{interaction.user.mention} a consulté la liste des employés en service.",
+            f"{interaction.user.mention} a consulté la liste des services.",
             discord.Color.blurple()
         )
 
