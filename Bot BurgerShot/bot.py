@@ -52,7 +52,7 @@ class BurgerShotBot(commands.Bot):
         )
 
 bot = BurgerShotBot()
-
+await connect_db()
 keep_alive()
 
 async def main():
